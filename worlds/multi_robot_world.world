@@ -43,6 +43,14 @@
       </ode>
     </physics>
 
+    <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
+      <ros>
+        <namespace>/gazebo</namespace>
+      </ros>
+
+      <update_rate>240.0</update_rate>
+    </plugin>
+
     <model name="turtlebot3_world">
       <static>1</static>
       <include>

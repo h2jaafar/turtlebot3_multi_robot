@@ -31,12 +31,10 @@ def generate_launch_description():
     ld = LaunchDescription()
 
     TURTLEBOT3_MODEL = "burger"
-
     enable_drive = LaunchConfiguration("enable_drive", default="true")
     declare_enable_drive = DeclareLaunchArgument(
         name="enable_drive", default_value="true", description="Enable robot drive node"
     )
-
 
     turtlebot3_multi_robot = get_package_share_directory("turtlebot3_multi_robot")
     launch_file_dir = os.path.join(turtlebot3_multi_robot, "launch")
@@ -69,25 +67,23 @@ def generate_launch_description():
     ld.add_action(gzserver_cmd)
     ld.add_action(gzclient_cmd)
 
+    robot_counter = 1
     ROWS = 2
     COLS = 2
 
     x = -ROWS
     y = -COLS
     last_action = None
-
-    # Remapping is required for state publisher otherwise /tf and /tf_static will get be published on root '/' namespace
     remappings = [("/tf", "tf"), ("/tf_static", "tf_static")]
 
-    # Spawn turtlebot3 instances in gazebo
     for i in range(COLS):
         x = -ROWS
         for j in range(ROWS):
-            # Construct a unique name and namespace
-            name = "turtlebot" + str(i) + "_" + str(j)
-            namespace = "/tb" + str(i) + "_" + str(j)
+            namespace = "B" + "{:02}".format(robot_counter)
+            # name = "turtlebot" + str(i) + "_" + str(j)
+            name = namespace
+            robot_counter += 1
 
-            # Create state publisher node for that instance
             turtlebot_state_publisher = Node(
                 package="robot_state_publisher",
                 namespace=namespace,
@@ -99,7 +95,6 @@ def generate_launch_description():
                 arguments=[urdf],
             )
 
-            # Create spawn call
             spawn_turtlebot3_burger = Node(
                 package="gazebo_ros",
                 executable="spawn_entity.py",
@@ -123,17 +118,12 @@ def generate_launch_description():
                 output="screen",
             )
 
-            # Advance by 2 meter in x direction for next robot instantiation
             x += 2.0
 
             if last_action is None:
-                # Call add_action directly for the first robot to facilitate chain instantiation via RegisterEventHandler
                 ld.add_action(turtlebot_state_publisher)
                 ld.add_action(spawn_turtlebot3_burger)
-                
             else:
-                # Use RegisterEventHandler to ensure next robot creation happens only after the previous one is completed.
-                # Simply calling ld.add_action for spawn_entity introduces issues due to parallel run.
                 spawn_turtlebot3_event = RegisterEventHandler(
                     event_handler=OnProcessExit(
                         target_action=last_action,
@@ -143,34 +133,8 @@ def generate_launch_description():
                 )
                 ld.add_action(spawn_turtlebot3_event)
 
-            # Save last instance for next RegisterEventHandler
             last_action = spawn_turtlebot3_burger
 
-        # Advance by 2 meter in y direction for next robot instantiation
         y += 2.0
-
-    # Start all driving nodes after the last robot is spawned
-    for i in range(COLS):
-        for j in range(ROWS):
-            namespace = "/tb" + str(i) + "_" + str(j)
-            # Create spawn call
-            drive_turtlebot3_burger = Node(
-                package="turtlebot3_gazebo",
-                executable="turtlebot3_drive",
-                namespace=namespace,
-                output="screen",
-                condition=IfCondition(enable_drive),
-            )
-
-            # Use RegisterEventHandler to ensure next robot creation happens only after the previous one is completed.
-            # Simply calling ld.add_action for spawn_entity introduces issues due to parallel run.
-            drive_turtlebot3_event = RegisterEventHandler(
-                event_handler=OnProcessExit(
-                    target_action=last_action,
-                    on_exit=[drive_turtlebot3_burger],
-                )
-            )
-            
-            ld.add_action(drive_turtlebot3_event)
 
     return ld

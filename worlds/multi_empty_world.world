@@ -43,7 +43,14 @@
       </ode>
     </physics>
     
+  <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
+      <ros>
+        <namespace>/gazebo</namespace>
+      </ros>
 
+      <update_rate>240.0</update_rate>
+  </plugin>
+  
   <model name='Untitled'>
     <pose>-0.167142 -0.122396 0 0 -0 0</pose>
     <link name='Wall_3'>
