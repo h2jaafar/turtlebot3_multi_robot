@@ -37,18 +37,11 @@ def generate_launch_description():
     )
 
     turtlebot3_multi_robot = get_package_share_directory("turtlebot3_multi_robot")
-    launch_file_dir = os.path.join(turtlebot3_multi_robot, "launch")
-
-    world = os.path.join(
-        turtlebot3_multi_robot, "worlds", "multi_empty_world.world"
-    )
-
+    world = os.path.join(turtlebot3_multi_robot, "worlds", "multi_empty_world.world")
     urdf_file_name = "turtlebot3_" + TURTLEBOT3_MODEL + ".urdf"
-    print("urdf_file_name : {}".format(urdf_file_name))
+    urdf = os.path.join(turtlebot3_multi_robot, "urdf", urdf_file_name)
 
-    urdf = os.path.join(
-        turtlebot3_multi_robot, "urdf", urdf_file_name
-    )
+    print("urdf_file_name : {}".format(urdf_file_name))
 
     gzserver_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -68,73 +61,66 @@ def generate_launch_description():
     ld.add_action(gzclient_cmd)
 
     robot_counter = 1
-    ROWS = 2
-    COLS = 2
-
-    x = -ROWS
-    y = -COLS
-    last_action = None
+    robot_positions = [
+        (1, 1),    # B01: top right
+        (-1, 1),   # B02: top left
+        (-1, -1),  # B03: bottom left
+        (1, -1)    # B04: bottom right
+    ]
     remappings = [("/tf", "tf"), ("/tf_static", "tf_static")]
+    last_action = None
 
-    for i in range(COLS):
-        x = -ROWS
-        for j in range(ROWS):
-            namespace = "B" + "{:02}".format(robot_counter)
-            # name = "turtlebot" + str(i) + "_" + str(j)
-            name = namespace
-            robot_counter += 1
+    for position in robot_positions:
+        namespace = "B" + "{:02}".format(robot_counter)
+        name = namespace
+        robot_counter += 1
 
-            turtlebot_state_publisher = Node(
-                package="robot_state_publisher",
-                namespace=namespace,
-                executable="robot_state_publisher",
-                output="screen",
-                parameters=[{"use_sim_time": False,
-                             "publish_frequency": 10.0}],
-                remappings=remappings,
-                arguments=[urdf],
-            )
+        turtlebot_state_publisher = Node(
+            package="robot_state_publisher",
+            namespace=namespace,
+            executable="robot_state_publisher",
+            output="screen",
+            parameters=[{"use_sim_time": False, "publish_frequency": 10.0}],
+            remappings=remappings,
+            arguments=[urdf],
+        )
 
-            spawn_turtlebot3_burger = Node(
-                package="gazebo_ros",
-                executable="spawn_entity.py",
-                arguments=[
-                    "-file",
-                    os.path.join(turtlebot3_multi_robot,'models', 'turtlebot3_' + TURTLEBOT3_MODEL, 'model.sdf'),
-                    "-entity",
-                    name,
-                    "-robot_namespace",
-                    namespace,
-                    "-x",
-                    str(x),
-                    "-y",
-                    str(y),
-                    "-z",
-                    "0.01",
-                    "-Y",
-                    "3.14159",
-                    "-unpause",
-                ],
-                output="screen",
-            )
+        spawn_turtlebot3_burger = Node(
+            package="gazebo_ros",
+            executable="spawn_entity.py",
+            arguments=[
+                "-file",
+                os.path.join(turtlebot3_multi_robot, 'models', 'turtlebot3_' + TURTLEBOT3_MODEL, 'model.sdf'),
+                "-entity",
+                name,
+                "-robot_namespace",
+                namespace,
+                "-x",
+                str(position[0]),
+                "-y",
+                str(position[1]),
+                "-z",
+                "0.01",
+                "-Y",
+                "0",
+                "-unpause",
+            ],
+            output="screen",
+        )
 
-            x += 2.0
-
-            if last_action is None:
-                ld.add_action(turtlebot_state_publisher)
-                ld.add_action(spawn_turtlebot3_burger)
-            else:
-                spawn_turtlebot3_event = RegisterEventHandler(
-                    event_handler=OnProcessExit(
-                        target_action=last_action,
-                        on_exit=[spawn_turtlebot3_burger,
-                                 turtlebot_state_publisher],
-                    )
+        if last_action is None:
+            ld.add_action(turtlebot_state_publisher)
+            ld.add_action(spawn_turtlebot3_burger)
+        else:
+            spawn_turtlebot3_event = RegisterEventHandler(
+                event_handler=OnProcessExit(
+                    target_action=last_action,
+                    on_exit=[spawn_turtlebot3_burger,
+                             turtlebot_state_publisher],
                 )
-                ld.add_action(spawn_turtlebot3_event)
+            )
+            ld.add_action(spawn_turtlebot3_event)
 
-            last_action = spawn_turtlebot3_burger
-
-        y += 2.0
+        last_action = spawn_turtlebot3_burger
 
     return ld
